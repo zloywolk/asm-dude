@@ -25,7 +25,6 @@ using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Tagging;
 using Microsoft.VisualStudio.Utilities;
-using System;
 using System.ComponentModel.Composition;
 
 using AsmDude.Tools;
@@ -35,29 +34,30 @@ namespace AsmDude.QuickInfo
     /// <summary>
     /// Factory for quick info sources
     /// </summary>
-    [Export(typeof(IQuickInfoSourceProvider))]
+    [Export(typeof(IAsyncQuickInfoSourceProvider))]
     [ContentType(AsmDudePackage.AsmDudeContentType)]
     [TextViewRole(PredefinedTextViewRoles.Debuggable)]
     [Name("AsmQuickInfoSourceProvider")]
-    internal sealed class AsmQuickInfoSourceProvider : IQuickInfoSourceProvider
+    internal sealed class AsmQuickInfoSourceProvider : IAsyncQuickInfoSourceProvider
     {
         [Import]
-        private IBufferTagAggregatorFactoryService _aggregatorFactory = null;
+        private readonly IBufferTagAggregatorFactoryService _aggregatorFactory = null;
 
         [Import]
-        private ITextDocumentFactoryService _docFactory = null;
+        private readonly ITextDocumentFactoryService _docFactory = null;
 
         [Import]
-        private IContentTypeRegistryService _contentService = null;
+        private readonly IContentTypeRegistryService _contentService = null;
 
-        public IQuickInfoSource TryCreateQuickInfoSource(ITextBuffer buffer)
+        public IAsyncQuickInfoSource TryCreateQuickInfoSource(ITextBuffer buffer)
         {
-            Func<AsmQuickInfoSource> sc = delegate () {
+            AsmQuickInfoSource localFunction()
+            {
                 var labelGraph = AsmDudeToolsStatic.GetOrCreate_Label_Graph(buffer, this._aggregatorFactory, this._docFactory, this._contentService);
                 var asmSimulator = AsmSimulator.GetOrCreate_AsmSimulator(buffer, this._aggregatorFactory);
                 return new AsmQuickInfoSource(buffer, this._aggregatorFactory, labelGraph, asmSimulator);
-            };
-            return buffer.Properties.GetOrCreateSingletonProperty(sc);
+            }
+            return buffer.Properties.GetOrCreateSingletonProperty(localFunction);
         }
     }
 }

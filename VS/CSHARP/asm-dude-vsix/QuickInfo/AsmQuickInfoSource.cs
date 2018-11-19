@@ -36,15 +36,18 @@ using Microsoft.VisualStudio.Text.Tagging;
 using AsmTools;
 using AsmDude.SyntaxHighlighting;
 using AsmDude.Tools;
+using System.Threading.Tasks;
+using System.Threading;
 
 namespace AsmDude.QuickInfo
 {
     /// <summary>
     /// Provides QuickInfo information to be displayed in a text buffer
     /// </summary>
-    internal sealed class AsmQuickInfoSource : IQuickInfoSource
+    internal sealed class AsmQuickInfoSource : IAsyncQuickInfoSource
     {
-        private readonly ITextBuffer _sourceBuffer;
+        private readonly TaskScheduler _uiScheduler = TaskScheduler.FromCurrentSynchronizationContext();
+        private readonly ITextBuffer _textBuffer;
         private readonly ITagAggregator<AsmTokenTag> _aggregator;
         private readonly LabelGraph _labelGraph;
         private readonly AsmSimulator _asmSimulator;
@@ -58,64 +61,48 @@ namespace AsmDude.QuickInfo
                 LabelGraph labelGraph,
                 AsmSimulator asmSimulator)
         {
-            this._sourceBuffer = buffer;
+            this._textBuffer = buffer;
             this._aggregator = AsmDudeToolsStatic.GetOrCreate_Aggregator(buffer, aggregatorFactory);
             this._labelGraph = labelGraph;
             this._asmSimulator = asmSimulator;
             this._asmDudeTools = AsmDudeTools.Instance;
         }
 
-        /*
-        public void AugmentQuickInfoSession(IQuickInfoSession session, IList<object> quickInfoContent, out ITrackingSpan applicableToSpan)
+        // This is called on a background thread.
+        public Task<QuickInfoItem> GetQuickInfoItemAsync(IAsyncQuickInfoSession session, CancellationToken cancellationToken)
         {
-            //AugmentQuickInfoSession_OK(session, quickInfoContent, out applicableToSpan);
-            AugmentQuickInfoSession_Bug(session, quickInfoContent, out applicableToSpan);
-        }
+            //AsmDudeToolsStatic.Output_INFO("QuickInfoSource:GetQuickInfoItemAsync"); logging here bricks the app
 
-        public void AugmentQuickInfoSession_Bug(IQuickInfoSession session, IList<object> quickInfoContent, out ITrackingSpan applicableToSpan)
-        {
-            var snapshot = this._sourceBuffer.CurrentSnapshot;
-            var triggerPoint = (SnapshotPoint)session.GetTriggerPoint(snapshot);
-            applicableToSpan = snapshot.CreateTrackingSpan(new SnapshotSpan(triggerPoint, triggerPoint), SpanTrackingMode.EdgeInclusive);
-            quickInfoContent.Add(new BugWindow());
-        }
-        */
-
-        /// <summary>Determine which pieces of Quickinfo content should be displayed</summary>
-        public void AugmentQuickInfoSession(IQuickInfoSession session, IList<object> quickInfoContent, out ITrackingSpan applicableToSpan)
-        {
-            applicableToSpan = null;
-            try
+            var triggerPoint = session.GetTriggerPoint(this._textBuffer.CurrentSnapshot);
+            if (triggerPoint != null)
             {
-                string contentType = this._sourceBuffer.ContentType.DisplayName;
-                if (contentType.Equals(AsmDudePackage.AsmDudeContentType, StringComparison.Ordinal))
-                {
-                    this.Handle(session, quickInfoContent, out applicableToSpan);
-                    return;
-                }
-                AsmDudeToolsStatic.Output_WARNING(string.Format("{0}:AugmentQuickInfoSession; does not have have AsmDudeContentType: but has type {1}", this.ToString(), contentType));
+                var line = triggerPoint.Value.GetContainingLine();
+                var lineSpan = this._textBuffer.CurrentSnapshot.CreateTrackingSpan(line.Extent, SpanTrackingMode.EdgeInclusive);
+
+                return Task<QuickInfoItem>.Factory.StartNew(() => this.Handle(session), CancellationToken.None, TaskCreationOptions.None, this._uiScheduler);
             }
-            catch (Exception e)
-            {
-                AsmDudeToolsStatic.Output_ERROR(string.Format("{0}:AugmentQuickInfoSession; e={1}", this.ToString(), e.ToString()));
-            }
+            return Task.FromResult<QuickInfoItem>(null);
         }
 
-        public void Dispose() {}
+        public void Dispose() {
+            AsmDudeToolsStatic.Output_INFO("AsmQuickInfoSource:Dispose");
+        }
 
         #region Private Methods
 
-        private void Handle(IQuickInfoSession session, IList<object> quickInfoContent, out ITrackingSpan applicableToSpan)
+        private QuickInfoItem Handle(IAsyncQuickInfoSession session)
         {
-            applicableToSpan = null;
+            ITrackingSpan applicableToSpan = null;
+            QuickInfoItem quickInfoItem = null;
+
             DateTime time1 = DateTime.Now;
 
-            ITextSnapshot snapshot = this._sourceBuffer.CurrentSnapshot;
+            ITextSnapshot snapshot = this._textBuffer.CurrentSnapshot;
             var triggerPoint = (SnapshotPoint)session.GetTriggerPoint(snapshot);
             if (triggerPoint == null)
             {
                 AsmDudeToolsStatic.Output_WARNING("AsmQuickInfoSource:AugmentQuickInfoSession: trigger point is null");
-                return;
+                return new QuickInfoItem(null, null);
             }
 
             Brush foreground = AsmDudeToolsStatic.Get_Font_Color();
@@ -125,7 +112,7 @@ namespace AsmDude.QuickInfo
             {
                 var asmTokenTag = enumerator.Current;
 
-                var enumerator2 = asmTokenTag.Span.GetSpans(this._sourceBuffer).GetEnumerator();
+                var enumerator2 = asmTokenTag.Span.GetSpans(this._textBuffer).GetEnumerator();
                 if (enumerator2.MoveNext())
                 {
                     SnapshotSpan tagSpan = enumerator2.Current;
@@ -139,7 +126,7 @@ namespace AsmDude.QuickInfo
                         if (enumerator.MoveNext())
                         {
                             var asmTokenTagX = enumerator.Current;
-                            var enumeratorX = asmTokenTagX.Span.GetSpans(this._sourceBuffer).GetEnumerator();
+                            var enumeratorX = asmTokenTagX.Span.GetSpans(this._textBuffer).GetEnumerator();
                             enumeratorX.MoveNext();
                             AsmDudeToolsStatic.Output_WARNING(string.Format("{0}:AugmentQuickInfoSession. current keyword " + keyword + ": but span has more than one tag! next tag=\"{1}\"", this.ToString(), enumeratorX.Current.GetText()));
                         }
@@ -197,7 +184,7 @@ namespace AsmDude.QuickInfo
                                     var registerTooltipWindow = new RegisterTooltipWindow(foreground);
                                     registerTooltipWindow.SetDescription(reg, this._asmDudeTools);
                                     registerTooltipWindow.SetAsmSim(this._asmSimulator, reg, lineNumber, true);
-                                    quickInfoContent.Add(registerTooltipWindow);
+                                    quickInfoItem = new QuickInfoItem(applicableToSpan, registerTooltipWindow);
                                 }
                                 break;
                             }
@@ -215,7 +202,7 @@ namespace AsmDude.QuickInfo
                                     instructionTooltipWindow.SetDescription(mnemonic, this._asmDudeTools);
                                     instructionTooltipWindow.SetPerformanceInfo(mnemonic, this._asmDudeTools);
                                     instructionTooltipWindow.SetAsmSim(this._asmSimulator, lineNumber, true);
-                                    quickInfoContent.Add(instructionTooltipWindow);
+                                    quickInfoItem = new QuickInfoItem(applicableToSpan, instructionTooltipWindow);
                                 }
                                 break;
                             }
@@ -349,12 +336,13 @@ namespace AsmDude.QuickInfo
                         description.FontSize = AsmDudeToolsStatic.Get_Font_Size() + 2;
                         description.FontFamily = AsmDudeToolsStatic.Get_Font_Type();
                         //AsmDudeToolsStatic.Output_INFO(string.Format("{0}:AugmentQuickInfoSession; setting description fontSize={1}; fontFamily={2}", this.ToString(), description.FontSize, description.FontFamily));
-                        quickInfoContent.Add(description);
+                        quickInfoItem = new QuickInfoItem(applicableToSpan, description);
                     }
                 }
             }
             //AsmDudeToolsStatic.Output_INFO("AsmQuickInfoSource:AugmentQuickInfoSession: applicableToSpan=\"" + applicableToSpan + "\"; quickInfoContent,Count=" + quickInfoContent.Count);
             AsmDudeToolsStatic.Print_Speed_Warning(time1, "QuickInfo");
+            return quickInfoItem;
         }
 
         private static Run Make_Run1(string str, Brush foreground)
@@ -392,7 +380,7 @@ namespace AsmDude.QuickInfo
                     string lineContent;
                     if (this._labelGraph.Is_From_Main_File(id))
                     {
-                        lineContent = " :" + this._sourceBuffer.CurrentSnapshot.GetLineFromLineNumber(lineNumber).GetText();
+                        lineContent = " :" + this._textBuffer.CurrentSnapshot.GetLineFromLineNumber(lineNumber).GetText();
                     }
                     else
                     {
@@ -431,7 +419,7 @@ namespace AsmDude.QuickInfo
                     string lineContent;
                     if (this._labelGraph.Is_From_Main_File(id))
                     {
-                        lineContent = " :" + this._sourceBuffer.CurrentSnapshot.GetLineFromLineNumber(lineNumber).GetText();
+                        lineContent = " :" + this._textBuffer.CurrentSnapshot.GetLineFromLineNumber(lineNumber).GetText();
                     } else
                     {
                         lineContent = "";

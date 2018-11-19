@@ -31,14 +31,15 @@ using Microsoft.VisualStudio.Text.Editor;
 using AsmDude.Tools;
 using AsmTools;
 using System.Windows;
+using System.Threading.Tasks;
 
 namespace AsmDude.QuickInfo
 {
     internal sealed class AsmQuickInfoController : IIntellisenseController
     {
         private readonly IList<ITextBuffer> _subjectBuffers;
-        private readonly IQuickInfoBroker _quickInfoBroker;
-        private IQuickInfoSession _session;
+        private readonly IAsyncQuickInfoBroker _quickInfoBroker;
+        private Task<IAsyncQuickInfoSession> _session;
         private ITextView _textView;
 
         private Window _legacyTooltipWindow;
@@ -47,7 +48,7 @@ namespace AsmDude.QuickInfo
         internal AsmQuickInfoController(
             ITextView textView,
             IList<ITextBuffer> subjectBuffers,
-            IQuickInfoBroker quickInfoBroker)
+            IAsyncQuickInfoBroker quickInfoBroker)
         {
             //AsmDudeToolsStatic.Output_INFO("AsmQuickInfoController:constructor: file=" + AsmDudeToolsStatic.GetFileName(textView.TextBuffer));
             this._textView = textView;
@@ -109,42 +110,28 @@ namespace AsmDude.QuickInfo
                         //ITrackingPoint triggerPoint = point.Value.Snapshot.CreateTrackingPoint(pos, PointTrackingMode.Positive);
                         ITrackingPoint triggerPoint = point.Value.Snapshot.CreateTrackingPoint(pos2, PointTrackingMode.Positive);
 
-                        if (this._session == null)
+                        if (this._quickInfoBroker.IsQuickInfoActive(this._textView))
                         {
-                            AsmDudeToolsStatic.Output_INFO("AsmQuickInfoController:OnTextViewMouseHover: A: session was null, create a new session  for triggerPoint " + pos + "; pos2=" + pos2);
-                            this._session = this._quickInfoBroker.TriggerQuickInfo(this._textView, triggerPoint, false);
-                            if (this._session != null)
+                            IAsyncQuickInfoSession current_Session = this._quickInfoBroker.GetSession(this._textView);
+                            if (current_Session.ApplicableToSpan.GetSpan(this._textView.TextSnapshot).IntersectsWith(new Span(point.Value.Position, 0)))
                             {
-                                this._session.Dismissed += this._session_Dismissed;
-                                //this._session.ApplicableToSpanChanged += (o, i) => { AsmDudeToolsStatic.Output_INFO("InstructionTooltipWindow:ApplicableToSpanChanged Event"); };
-                                //this._session.PresenterChanged += (o, i) => { AsmDudeToolsStatic.Output_INFO("InstructionTooltipWindow:PresenterChanged Event"); };
-                                //this._session.Recalculated += (o, i) => { AsmDudeToolsStatic.Output_INFO("InstructionTooltipWindow:Recalculated Event"); };
+                                AsmDudeToolsStatic.Output_INFO("AsmQuickInfoController:OnTextViewMouseHover: A: quickInfoBroker is already active: intersects!");
+                                //var x = current_Session.HasInteractiveContent;
+                            }
+                            else
+                            {
+                                AsmDudeToolsStatic.Output_INFO("AsmQuickInfoController:OnTextViewMouseHover: B: quickInfoBroker is already active, but we need a new session at " + pos + "; pos2=" + pos2);
+                                current_Session.DismissAsync();
+                                this._quickInfoBroker.TriggerQuickInfoAsync(this._textView, triggerPoint, QuickInfoSessionOptions.None);
                             }
                         }
                         else
                         {
-                            if (this._session.IsDismissed)
-                            {
-                                AsmDudeToolsStatic.Output_INFO("AsmQuickInfoController:OnTextViewMouseHover: B: session was not null but was dismissed, create a new session  for triggerPoint " + pos + "; pos2=" + pos2);
-
-                                this._session = this._quickInfoBroker.TriggerQuickInfo(this._textView, triggerPoint, false);
-                                if (this._session != null) this._session.Dismissed += this._session_Dismissed;
-                            }
-                            else
-                            {
-                                if (this._session.ApplicableToSpan.GetSpan(this._textView.TextSnapshot).IntersectsWith(new Span(point.Value.Position, 0)))
-                                {
-                                    AsmDudeToolsStatic.Output_INFO("AsmQuickInfoController:OnTextViewMouseHover: C: session was not dismissed: intersects!");
-                                }
-                                else
-                                {
-                                    AsmDudeToolsStatic.Output_INFO("AsmQuickInfoController:OnTextViewMouseHover: D: session  was not dismissed but we need a new session for triggerPoint " + pos + "; pos2=" + pos2);
-
-                                    //if (this._session != null) this._session.Dismiss();
-                                    this._session = this._quickInfoBroker.TriggerQuickInfo(this._textView, triggerPoint, false);
-                                    if (this._session != null) this._session.Dismissed += this._session_Dismissed;
-                                }
-                            }
+                            AsmDudeToolsStatic.Output_INFO("AsmQuickInfoController:OnTextViewMouseHover: C: quickInfoBroker was not active, create a new session for triggerPoint " + pos + "; pos2=" + pos2);
+                            var session = this._quickInfoBroker.TriggerQuickInfoAsync(this._textView, triggerPoint, QuickInfoSessionOptions.None);
+                            IAsyncQuickInfoSession current_Session2 = this._quickInfoBroker.GetSession(this._textView);
+                            //current_Session2.HasInteractiveContent = true;
+                            //var x = current_Session2.Options;
                         }
                     }
                     else if (contentType.Equals(AsmDudePackage.DisassemblyContentType, StringComparison.Ordinal))
@@ -213,7 +200,7 @@ namespace AsmDude.QuickInfo
         public void CloseToolTip()
         {
             this._legacyTooltipWindow?.Close();
-            this._session?.Dismiss();
+           // this._session?.Dismiss();
             this._session = null;
         }
 

@@ -41,7 +41,7 @@ namespace AsmDude.QuickInfo
         private AsmSimulator _asmSimulator;
 
         internal AsmQuickInfoController Owner { get; set; }
-        internal IQuickInfoSession Session { get; set; }
+        internal IAsyncQuickInfoSession Session { get; set; }
 
         public InstructionTooltipWindow(Brush foreground)
         {
@@ -75,7 +75,7 @@ namespace AsmDude.QuickInfo
         {
             AsmDudeToolsStatic.Output_INFO("InstructionTooltipWindow:CloseButton_Click");
             if (this.Owner != null) this.Owner.CloseToolTip();
-            if (this.Session != null) this.Session.Dismiss();
+            if (this.Session != null) this.Session.DismissAsync();
             AsmDudeToolsStatic.Output_INFO("InstructionTooltipWindow:CloseButton_Click: owner and session are null");
         }
 
