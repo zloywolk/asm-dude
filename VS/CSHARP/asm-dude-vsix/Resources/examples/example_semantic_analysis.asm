@@ -83,8 +83,12 @@ label1:
 
 	#region slow (expensive) instruction
 	mov ptr qword [rax], 10
-	mov rax, ptr qword [rax]
-	popcnt rbx, rax
+	mov r10, ptr qword [rax]
+	popcnt rbx, r10
+
+
+	mov ptr qword [rcx], 0xFF
+	popcnt rdx, ptr qword [rcx]
 	#endregion
 
 
