@@ -55,7 +55,7 @@ namespace AsmSim
         private readonly IDictionary<Rn, Tv[]> _cached_Reg_Values;
         private readonly IDictionary<Flags, Tv> _cached_Flag_Values;
 
-        private object _ctxLock = new object();
+        private readonly object _ctxLock = new object();
 
         private BranchInfoStore _branchInfoStore;
         public BranchInfoStore BranchInfoStore { get { return this._branchInfoStore; } }
@@ -77,6 +77,7 @@ namespace AsmSim
         public static Solver MakeSolver(Context ctx)
         {
             Solver s = ctx.MkSolver(ctx.MkTactic("qfbv"));
+            //Solver s = ctx.MkSolver(ctx.MkTactic("qffd"));
             //Params p = ctx.MkParams();
             //p.Add("mbqi", false); // use Model-based Quantifier Instantiation
             //s.Parameters = p;
@@ -714,7 +715,7 @@ namespace AsmSim
             {
                 sb.Append(this.ToStringFlags(identStr));
                 sb.Append(this.ToStringRegs(identStr));
-                //sb.Append(ToStringSIMD(identStr));
+                sb.Append(this.ToStringSIMD(identStr));
             }
             //sb.AppendLine(ToStringWarning(identStr));
             return sb.ToString();
@@ -749,9 +750,8 @@ namespace AsmSim
         public string ToStringSIMD(string identStr)
         {
             StringBuilder sb = new StringBuilder();
-//            foreach (Rn reg in this.Tools.StateConfig.GetRegOn())
+            foreach (Rn reg in this.Tools.StateConfig.GetRegSimdOn())
             {
-                Rn reg = Rn.XMM1;
                 Tv[] regContent = this.GetTvArray(reg);
                 var (hasOneValue, value) = ToolsZ3.HasOneValue(regContent);
                 bool showReg = (!(hasOneValue && value == Tv.UNKNOWN));

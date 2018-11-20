@@ -159,6 +159,7 @@ namespace AsmSim
 
                     state = Runner.SimpleStep_Forward(line1, state);
                     Console.WriteLine("After \"" + line1 + "\", we know:\n" + state);
+                       
                     state = Runner.SimpleStep_Forward(line2, state);
                     Console.WriteLine("After \"" + line2 + "\", we know:\n" + state);
                 }
