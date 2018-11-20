@@ -666,8 +666,10 @@ namespace AsmSim
             }
             using (BitVecNum bv1_1bit = ctx.MkBV(1, 1))
             {
+                //TODO: consider running the following loop in parallel
                 for (uint bit = 0; bit < nBits; ++bit)
                 {
+                    Console.WriteLine("INFO: ToolsZ3:GetTv5Array: bit "+bit);
                     using (BoolExpr b = ToolsZ3.GetBit(value, bit, bv1_1bit, ctx))
                     using (BoolExpr b_undef = ToolsZ3.GetBit(undef, bit, bv1_1bit, ctx))
                     {

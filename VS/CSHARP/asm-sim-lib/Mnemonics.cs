@@ -2161,7 +2161,7 @@ namespace AsmSim
         /// <summary>AAM - ASCII adjust after multiplication</summary>
         public sealed class Aam : OpcodeNBase
         {
-            private int imm;
+            private readonly int imm;
             public Aam(string[] args, (string prevKey, string nextKey, string nextKeyBranch) keys, Tools t) : base(Mnemonic.AAM, args, 1, keys, t) {
                 if(this.IsHalted) return;
                 if (args.Length == 0)
@@ -2199,7 +2199,7 @@ namespace AsmSim
         /// <summary>AAD - ASCII adjust after division</summary>
         public sealed class Aad : OpcodeNBase
         {
-            private int imm;
+            private readonly int imm;
             public Aad(string[] args, (string prevKey, string nextKey, string nextKeyBranch) keys, Tools t) : base(Mnemonic.AAD, args, 1, keys, t) {
                 if (this.IsHalted) return;
                 if (args.Length == 0)

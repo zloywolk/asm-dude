@@ -1,6 +1,6 @@
 ﻿// The MIT License (MIT)
 //
-// Copyright (c) 2017 Henk-Jan Lebbink
+// Copyright (c) 2018 Henk-Jan Lebbink
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -35,7 +35,6 @@ namespace AsmSim
         public bool OF = false;
         public bool DF = false;
 
-
         public bool RAX = false;
         public bool RBX = false;
         public bool RCX = false;
@@ -59,6 +58,16 @@ namespace AsmSim
         public bool mem = false;
 
         public bool SIMD = false;
+
+        public bool XMM0 = false;
+        public bool XMM1 = false;
+        public bool XMM2 = false;
+        public bool XMM3 = false;
+        public bool XMM4 = false;
+        public bool XMM5 = false;
+        public bool XMM6 = false;
+        public bool XMM7 = false;
+
 
         #region Setters
         public void Set_All_On()
@@ -174,6 +183,16 @@ namespace AsmSim
                 case Rn.R13: this.R13 = true; break;
                 case Rn.R14: this.R14 = true; break;
                 case Rn.R15: this.R15 = true; break;
+
+                case Rn.XMM0: this.XMM0 = true; break;
+                case Rn.XMM1: this.XMM1 = true; break;
+                case Rn.XMM2: this.XMM2 = true; break;
+                case Rn.XMM3: this.XMM3 = true; break;
+                case Rn.XMM4: this.XMM4 = true; break;
+                case Rn.XMM5: this.XMM5 = true; break;
+                case Rn.XMM6: this.XMM6 = true; break;
+                case Rn.XMM7: this.XMM7 = true; break;
+
                 default: break;
             }
         }
@@ -251,6 +270,18 @@ namespace AsmSim
             if (this.SF) yield return Flags.SF;
             if (this.OF) yield return Flags.OF;
             if (this.DF) yield return Flags.DF;
+        }
+        public IEnumerable<Rn> GetRegSimdOn()
+        {
+            if (this.XMM0) yield return Rn.XMM0;
+            if (this.XMM1) yield return Rn.XMM1;
+            if (this.XMM2) yield return Rn.XMM2;
+            if (this.XMM3) yield return Rn.XMM3;
+
+            if (this.XMM4) yield return Rn.XMM4;
+            if (this.XMM5) yield return Rn.XMM5;
+            if (this.XMM6) yield return Rn.XMM6;
+            if (this.XMM7) yield return Rn.XMM7;
         }
         #endregion
     }

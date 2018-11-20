@@ -48,9 +48,9 @@ namespace AsmSim
             //TestMnemonic();
             //Test_Rep();
             //Test_Usage();
-            TestMemorySpeed();
+            //TestMemorySpeed();
             //TestDynamicFlow();
-            //TestSIMD();
+            TestSIMD();
             //EmptyMemoryTest();
             //ProgramSynthesis1();
             //TestFunctions();
@@ -146,7 +146,7 @@ namespace AsmSim
             };
             Tools tools = new Tools(settings);
             tools.StateConfig.Set_All_Off();
-            tools.StateConfig.SIMD = true;
+            tools.StateConfig.XMM1 = true;
             tools.ShowUndefConstraints = true;
             using (Context ctx = new Context(settings))
             {
@@ -159,6 +159,7 @@ namespace AsmSim
 
                     state = Runner.SimpleStep_Forward(line1, state);
                     Console.WriteLine("After \"" + line1 + "\", we know:\n" + state);
+                       
                     state = Runner.SimpleStep_Forward(line2, state);
                     Console.WriteLine("After \"" + line2 + "\", we know:\n" + state);
                 }
